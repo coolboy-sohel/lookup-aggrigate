@@ -1,0 +1,54 @@
+
+ const findAll = async (dbConnection, condition) => {
+
+    /* Establishing db connection with collection */
+    var modelName = await dbConnection.model("employee_passport_details", passportModel);
+    /* Establishing db connection with collection */
+ 
+    /* Using aggregate methods to fetch the data from the collections */  
+    var employeePassportData = await modelName.aggregate([
+      { $match : condition },
+      {
+        $unwind: "$passportDetails"
+      },
+      {
+        $lookup: {
+          from: "employee_passport_documents",
+          localField: "passportDetails.documents.documentId",
+          foreignField: "_id",
+          as: "passportDetails.documents.documentData"
+        }
+      },
+      { $match : { "passportDetails.deletedAt" : null } },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "employeeId",
+          foreignField: "_id",
+          as: "employeesData"
+        }
+      },
+      {
+        $group: {
+          _id : { $first : "$employeesData._id" } ,
+          employeesData : { $first : "$employeesData"},
+          documentData : { $push: "$passportDetails" }
+        }
+      },
+      {
+        $project : {
+          _id : 1,
+          employeeName : { $first : "$employeesData.firstName"},
+          employeeId : { $first : "$employeesData._id"},
+          passportDetails : "$documentData"
+        }
+      }
+    ]);  
+    /* Using aggregate methods to fetch the data from the collections */  
+ 
+    if (employeePassportData.length > 0) {
+      return { status: true, data: employeePassportData };
+    } else {
+      return { status: false, message: responseMessages.common.no_record_found, error: "" };
+    }
+};
